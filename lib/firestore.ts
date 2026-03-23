@@ -230,6 +230,11 @@ export async function getBlogPostBySlug(slug: string): Promise<FirestoreBlogPost
  * Get a single blog post by ID
  */
 export async function getBlogPostById(id: string): Promise<FirestoreBlogPost | null> {
+  if (!db) {
+    console.warn("Firestore db not initialized, cannot fetch post by ID");
+    return null;
+  }
+
   try {
     const docRef = doc(db, BLOGS_COLLECTION, id);
     const snapshot = await getDoc(docRef);
@@ -354,8 +359,12 @@ export async function updateBlogPost(
     published: boolean;
   }>
 ): Promise<void> {
+  if (!db) {
+    throw new Error("Firestore not initialized - check Firebase configuration");
+  }
+
   const docRef = doc(db, BLOGS_COLLECTION, id);
-  
+
   const updateData: Record<string, unknown> = {
     ...input,
     updatedAt: serverTimestamp(),
@@ -374,6 +383,10 @@ export async function updateBlogPost(
  * Delete a blog post
  */
 export async function deleteBlogPost(id: string): Promise<void> {
+  if (!db) {
+    throw new Error("Firestore not initialized - check Firebase configuration");
+  }
+
   const docRef = doc(db, BLOGS_COLLECTION, id);
   await deleteDoc(docRef);
   console.log("[Blog Delete] SUCCESS: Blog post deleted with ID:", id);
@@ -390,6 +403,11 @@ export interface FirestoreInquiry extends Omit<Inquiry, "id"> {
  * Get all inquiries from Firestore
  */
 export async function getInquiries(): Promise<FirestoreInquiry[]> {
+  if (!db) {
+    console.warn("[Inquiries] Firestore db not initialized, returning empty array");
+    return [];
+  }
+
   try {
     const inquiriesRef = collection(db, INQUIRIES_COLLECTION);
     const q = query(inquiriesRef, orderBy("createdAt", "desc"));
@@ -473,6 +491,10 @@ export async function updateInquiryStatus(
   id: string,
   status: "New" | "Replied" | "Closed"
 ): Promise<void> {
+  if (!db) {
+    throw new Error("Firestore not initialized - check Firebase configuration");
+  }
+
   const docRef = doc(db, INQUIRIES_COLLECTION, id);
   await updateDoc(docRef, { status });
   console.log("[Inquiry Update] SUCCESS: Inquiry status updated for ID:", id, "to:", status);
@@ -482,6 +504,10 @@ export async function updateInquiryStatus(
  * Delete an inquiry
  */
 export async function deleteInquiry(id: string): Promise<void> {
+  if (!db) {
+    throw new Error("Firestore not initialized - check Firebase configuration");
+  }
+
   const docRef = doc(db, INQUIRIES_COLLECTION, id);
   await deleteDoc(docRef);
   console.log("[Inquiry Delete] SUCCESS: Inquiry deleted with ID:", id);

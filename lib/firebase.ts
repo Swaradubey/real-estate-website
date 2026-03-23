@@ -1,10 +1,10 @@
+import type { FirebaseApp } from "firebase/app";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getAuth } from "firebase/auth";
-import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getAnalytics, type Analytics } from "firebase/analytics";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
-// Firebase configuration from environment variables
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -15,71 +15,86 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase only on client side or if not already initialized
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+function hasValidFirebaseWebConfig(): boolean {
+  const key = typeof firebaseConfig.apiKey === "string" ? firebaseConfig.apiKey.trim() : "";
+  const projectId =
+    typeof firebaseConfig.projectId === "string" ? firebaseConfig.projectId.trim() : "";
+  return Boolean(key && projectId);
+}
 
-// Analytics is only available in the browser
-export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
+if (hasValidFirebaseWebConfig()) {
+  try {
+    const a = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(a);
+    db = getFirestore(a);
+    storage = getStorage(a);
+    app = a;
+  } catch (e) {
+    console.warn("[Firebase] Initialization skipped or failed (missing/invalid env on server build?):", e);
+    app = null;
+    auth = null;
+    db = null;
+    storage = null;
+  }
+}
+
+export const analytics: Analytics | null =
+  typeof window !== "undefined" && app ? getAnalytics(app) : null;
+
+export { auth, db, storage };
 export default app;
 
-/**
- * Test Firestore connection by writing a test document
- * Call this function to verify Firebase is properly connected
- */
+export function isFirebaseConfigured(): boolean {
+  return app !== null && db !== null;
+}
+
 export async function testFirestoreConnection(): Promise<void> {
   try {
     console.log("[Firebase Test] Starting Firestore connection test...");
-    
-    // Check if Firebase is initialized
-    const apps = getApps();
-    console.log(`[Firebase Test] Firebase apps initialized: ${apps.length}`);
-    
-    if (apps.length === 0) {
-      console.error("[Firebase Test] ERROR: Firebase is not initialized!");
+
+    if (!app || !db) {
+      console.error("[Firebase Test] ERROR: Firebase is not initialized (check NEXT_PUBLIC_* env vars).");
       return;
     }
-    
-    // Check configuration
+
+    const apps = getApps();
+    console.log(`[Firebase Test] Firebase apps initialized: ${apps.length}`);
+
     const config = apps[0].options;
     console.log(`[Firebase Test] Project ID: ${config.projectId}`);
     console.log(`[Firebase Test] Auth Domain: ${config.authDomain}`);
-    
-    // Attempt to write a test document
+
     const testCollection = collection(db, "_connection_tests");
     const testDoc = await addDoc(testCollection, {
       timestamp: serverTimestamp(),
       test: true,
       message: "Connection test",
     });
-    
+
     console.log(`[Firebase Test] SUCCESS: Firestore is connected!`);
     console.log(`[Firebase Test] Test document written with ID: ${testDoc.id}`);
-    console.log(`[Firebase Test] Connection is working properly.`);
-    
   } catch (error: unknown) {
     console.error("[Firebase Test] ERROR: Firestore connection test failed");
-    
+
     if (error instanceof Error) {
       console.error(`[Firebase Test] Error message: ${error.message}`);
-      
-      // Check for specific Firebase errors
+
       if (error.message.includes("permission-denied")) {
-        console.warn("[Firebase Test] PERMISSION DENIED: Firebase is connected but Firestore rules are blocking writes.");
-        console.warn("[Firebase Test] This means your connection is working, but you need to update your Firestore security rules.");
-        console.warn("[Firebase Test] Visit: https://console.firebase.google.com/project/${firebaseConfig.projectId}/firestore/rules");
+        console.warn("[Firebase Test] PERMISSION DENIED: Update Firestore security rules.");
       } else if (error.message.includes("unauthenticated")) {
-        console.warn("[Firebase Test] AUTH REQUIRED: Firebase is connected but authentication is required for writes.");
+        console.warn("[Firebase Test] AUTH REQUIRED for writes.");
       } else if (error.message.includes("not-found")) {
-        console.error("[Firebase Test] DATABASE NOT FOUND: The Firestore database may not exist yet.");
+        console.error("[Firebase Test] DATABASE NOT FOUND.");
       } else if (error.message.includes("network")) {
-        console.error("[Firebase Test] NETWORK ERROR: Check your internet connection.");
+        console.error("[Firebase Test] NETWORK ERROR.");
       }
     }
-    
+
     throw error;
   }
 }
