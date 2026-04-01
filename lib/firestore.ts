@@ -52,7 +52,7 @@ export interface FirestoreBlogPost extends Omit<BlogPost, "id"> {
 export async function getBlogPosts(): Promise<FirestoreBlogPost[]> {
   // Safety check: if db is not initialized, return empty array immediately
   if (!db) {
-    console.warn("[Blog Fetch] Firestore db not initialized, returning empty posts array");
+    console.warn("[Blog Fetch] Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     return [];
   }
 
@@ -133,7 +133,7 @@ export async function getBlogPosts(): Promise<FirestoreBlogPost[]> {
  */
 export async function getAllBlogPostsIncludingDrafts(): Promise<FirestoreBlogPost[]> {
   if (!db) {
-    console.warn("[Blog Fetch] Firestore db not initialized, returning empty posts array");
+    console.warn("[Blog Fetch] Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     return [];
   }
 
@@ -182,7 +182,7 @@ export async function getAllBlogPostsIncludingDrafts(): Promise<FirestoreBlogPos
 export async function getBlogPostBySlug(slug: string): Promise<FirestoreBlogPost | null> {
   // Safety check: if db is not initialized, return null immediately
   if (!db) {
-    console.warn("Firestore db not initialized, cannot fetch post by slug");
+    console.warn("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     return null;
   }
 
@@ -232,7 +232,7 @@ export async function getBlogPostBySlug(slug: string): Promise<FirestoreBlogPost
  */
 export async function getBlogPostById(id: string): Promise<FirestoreBlogPost | null> {
   if (!db) {
-    console.warn("Firestore db not initialized, cannot fetch post by ID");
+    console.warn("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     return null;
   }
 
@@ -283,7 +283,7 @@ export async function createBlogPost(input: {
   keywords?: string[];
 }): Promise<FirestoreBlogPost> {
   if (!db) {
-    const error = new Error("Firestore not initialized - check Firebase configuration");
+    const error = new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     console.error("[Blog Create] ERROR:", error.message);
     throw error;
   }
@@ -333,13 +333,15 @@ export async function createBlogPost(input: {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     } as FirestoreBlogPost;
-  } catch (error) {
-    console.error("[Blog Create] ERROR: Failed to write to Firestore collection '", BLOGS_COLLECTION, "':");
-    console.error("[Blog Create] Error details:", error);
-    if (error instanceof Error) {
-      console.error("[Blog Create] Error message:", error.message);
-      console.error("[Blog Create] Error name:", error.name);
+  } catch (error: any) {
+    console.error("[Blog Create] FIRESTORE ERROR: Failed to write to collection 'blogs'");
+    console.error("[Blog Create] Error Code:", error?.code || "unknown");
+    console.error("[Blog Create] Error Message:", error?.message || "No message available");
+    
+    if (error?.code === "permission-denied") {
+      console.error("[Blog Create] TIP: Ensure your Firestore security rules allow writes for authenticated users.");
     }
+    
     throw error;
   }
 }
@@ -361,7 +363,7 @@ export async function updateBlogPost(
   }>
 ): Promise<void> {
   if (!db) {
-    throw new Error("Firestore not initialized - check Firebase configuration");
+    throw new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
   }
 
   const docRef = doc(db, BLOGS_COLLECTION, id);
@@ -385,7 +387,7 @@ export async function updateBlogPost(
  */
 export async function deleteBlogPost(id: string): Promise<void> {
   if (!db) {
-    throw new Error("Firestore not initialized - check Firebase configuration");
+    throw new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
   }
 
   const docRef = doc(db, BLOGS_COLLECTION, id);
@@ -405,7 +407,7 @@ export interface FirestoreInquiry extends Omit<Inquiry, "id"> {
  */
 export async function getInquiries(): Promise<FirestoreInquiry[]> {
   if (!db) {
-    console.warn("[Inquiries] Firestore db not initialized, returning empty array");
+    console.warn("[Inquiries] Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     return [];
   }
 
@@ -445,7 +447,7 @@ export async function createInquiry(input: {
   message: string;
 }): Promise<FirestoreInquiry> {
   if (!db) {
-    const error = new Error("Firestore not initialized - check Firebase configuration");
+    const error = new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     console.error("[Inquiry Create] ERROR:", error.message);
     throw error;
   }
@@ -493,7 +495,7 @@ export async function updateInquiryStatus(
   status: "New" | "Replied" | "Closed"
 ): Promise<void> {
   if (!db) {
-    throw new Error("Firestore not initialized - check Firebase configuration");
+    throw new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
   }
 
   const docRef = doc(db, INQUIRIES_COLLECTION, id);
@@ -506,7 +508,7 @@ export async function updateInquiryStatus(
  */
 export async function deleteInquiry(id: string): Promise<void> {
   if (!db) {
-    throw new Error("Firestore not initialized - check Firebase configuration");
+    throw new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
   }
 
   const docRef = doc(db, INQUIRIES_COLLECTION, id);
@@ -593,7 +595,7 @@ export async function addProperty(input: {
   image: string;
 }): Promise<FirestoreProperty> {
   if (!db) {
-    const error = new Error("Firestore not initialized - check Firebase configuration");
+    const error = new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     console.error("[Property Create] ERROR:", error.message);
     throw error;
   }
@@ -633,7 +635,7 @@ export async function addProperty(input: {
  */
 export async function getProperties(): Promise<FirestoreProperty[]> {
   if (!db) {
-    console.warn("[Properties] Firestore db not initialized, returning empty array");
+    console.warn("[Properties] Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     return [];
   }
 
@@ -672,7 +674,7 @@ export async function getProperties(): Promise<FirestoreProperty[]> {
  */
 export async function getPropertyById(id: string): Promise<FirestoreProperty | null> {
   if (!db) {
-    console.warn("Firestore db not initialized, cannot fetch property by ID");
+    console.warn("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
     return null;
   }
 
@@ -705,7 +707,7 @@ export async function getPropertyById(id: string): Promise<FirestoreProperty | n
  */
 export async function deleteProperty(id: string): Promise<void> {
   if (!db) {
-    throw new Error("Firestore not initialized");
+    throw new Error("Firestore not initialized. Please check your NEXT_PUBLIC_FIREBASE_* environment variables in .env.local");
   }
   const docRef = doc(db, PROPERTIES_COLLECTION, id);
   await deleteDoc(docRef);

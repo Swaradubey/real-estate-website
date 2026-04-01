@@ -5,7 +5,8 @@ import dynamic from "next/dynamic";
 import { useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { createBlogPostAction } from "./actions";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { createBlogPost } from "@/lib/firestore";
 import { slugify } from "@/lib/data";
 import "react-quill/dist/quill.snow.css";
 
@@ -46,6 +47,7 @@ export default function BlogCreateForm() {
   const [contentHtml, setContentHtml] = useState("");
   const [contentError, setContentError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [seoTitle, setSeoTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
@@ -215,8 +217,24 @@ export default function BlogCreateForm() {
     );
   }
 
+  // Check if Firebase is configured
+  const isConfigured = isFirebaseConfigured();
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 pt-[140px] sm:pt-0" style={{ fontFamily: "var(--font-body)" }}>
+      {!isConfigured && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center gap-3 text-red-800 font-medium">
+            <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <span>Firestore Not Initialized</span>
+          </div>
+          <p className="text-red-700 text-sm mt-2 ml-8">
+            Please check your <code>.env.local</code> file and ensure all <code>NEXT_PUBLIC_FIREBASE_*</code> environment variables are correctly set.
+          </p>
+        </div>
+      )}
       {/* Mobile Header - Only visible on mobile */}
       <div className="sm:hidden mb-4 mt-0 pt-4">
         <div className="flex items-center justify-between mb-4">
@@ -250,14 +268,35 @@ export default function BlogCreateForm() {
           }
           setContentError(null);
           setImageUploadError(null);
+          setSuccessMessage(null);
           setIsSubmitting(true);
 
           try {
-            const formData = new FormData(e.currentTarget);
-            const post = await createBlogPostAction(formData);
-            // Navigate to the new post (now saved in Firestore)
-            router.push(`/blog/${post.slug}`);
+            const authorValue = (e.currentTarget.elements.namedItem("author") as HTMLInputElement).value.trim();
+
+            // Write directly to Firestore via client SDK — no firebase-admin, no API route needed
+            const post = await createBlogPost({
+              title,
+              content: contentHtml,
+              author: authorValue,
+              image,
+              seoTitle,
+              metaDescription,
+              keywords: keywords
+                .split(",")
+                .map((k) => k.trim())
+                .filter(Boolean),
+            });
+
+            console.log("[Blog Create] SUCCESS: Blog published with ID:", post.id, "slug:", post.slug);
+            setSuccessMessage("Blog post published successfully! Redirecting...");
+
+            // Navigate to the new post after a short delay so the user sees the success message
+            setTimeout(() => {
+              router.push(`/blog/${post.slug}`);
+            }, 1200);
           } catch (err) {
+            console.error("[Blog Create] Client Error:", err);
             setContentError(err instanceof Error ? err.message : "Failed to create post. Please try again.");
             setIsSubmitting(false);
           }
@@ -350,7 +389,10 @@ export default function BlogCreateForm() {
             {imageUploadError ? (
               <div className="font-body text-xs text-red-700 mt-2 break-words">{imageUploadError}</div>
             ) : null}
-            {!contentError && !imageUploadError ? (
+            {successMessage ? (
+              <div className="font-body text-xs text-emerald-700 mt-2 break-words font-medium">{successMessage}</div>
+            ) : null}
+            {!contentError && !imageUploadError && !successMessage ? (
               <div className="font-body text-xs text-muted mt-2">
                 Tip: use the toolbar to format text, add links, or insert images.
               </div>
@@ -414,7 +456,7 @@ export default function BlogCreateForm() {
             <Link href="/admin/blog" className="font-body text-xs text-muted tracking-widest uppercase hover:text-gold transition-colors text-center sm:text-right">Cancel</Link>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isConfigured}
               className="w-full sm:w-auto font-body text-xs font-semibold tracking-widest uppercase text-black px-7 py-3 rounded-md cursor-pointer transition-all duration-300 ease-out hover:-translate-y-0.5 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: 'linear-gradient(135deg, #c8a45b, #b8963d)',

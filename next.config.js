@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
-  // Removed 'output: export' to support dynamic Firestore data
-  // Firebase Hosting supports Next.js SSR via Firebase Functions
+  // Keep firebase-admin server-side only — prevents it from being bundled
+  // into client code, which causes "Module not found: Can't resolve 'firebase-admin'"
+  experimental: {
+    serverComponentsExternalPackages: ["firebase-admin"],
+  },
   images: {
     unoptimized: true,
     remotePatterns: [

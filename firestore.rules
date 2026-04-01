@@ -1,19 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Properties collection - allow all reads and writes for development
-    match /properties/{docId} {
-      allow read, write: if true;
+
+    // Allow read for everyone
+    match /{document=**} {
+      allow read: if true;
     }
 
-    // Blogs collection - allow all reads and writes for development
-    match /blogs/{docId} {
-      allow read, write: if true;
-    }
-
-    // Inquiries collection - allow all reads and writes for development
-    match /inquiries/{docId} {
-      allow read, write: if true;
+    // Allow write only for authenticated users
+    match /blogs/{blogId} {
+      allow create, update, delete: if request.auth != null;
     }
   }
 }

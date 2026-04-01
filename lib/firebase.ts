@@ -15,40 +15,55 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-function hasValidFirebaseWebConfig(): boolean {
-  const key = typeof firebaseConfig.apiKey === "string" ? firebaseConfig.apiKey.trim() : "";
-  const projectId =
-    typeof firebaseConfig.projectId === "string" ? firebaseConfig.projectId.trim() : "";
-  return Boolean(key && projectId);
+// --- Validation and Singleton ---
+
+function validateConfig() {
+  const missing = [];
+  if (!firebaseConfig.apiKey) missing.push("NEXT_PUBLIC_FIREBASE_API_KEY");
+  if (!firebaseConfig.projectId) missing.push("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  
+  if (missing.length > 0) {
+    const errorPrefix = typeof window === "undefined" ? "[Firebase Server]" : "[Firebase Client]";
+    console.warn(`${errorPrefix} Missing required environment variables: ${missing.join(", ")}`);
+    return false;
+  }
+  return true;
 }
 
+// Global variables for singleton instances
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
 
-if (hasValidFirebaseWebConfig()) {
+if (validateConfig()) {
   try {
-    const a = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(a);
-    db = getFirestore(a);
-    storage = getStorage(a);
-    app = a;
-  } catch (e) {
-    console.warn("[Firebase] Initialization skipped or failed (missing/invalid env on server build?):", e);
-    app = null;
-    auth = null;
-    db = null;
-    storage = null;
+    // Only initialize if no apps exist
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    
+    // Derived singletons
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+  } catch (err) {
+    console.error("[Firebase] Initialization error:", err);
   }
+} else {
+  // Graceful fallback logging
+  const origin = typeof window === "undefined" ? "Server" : "Browser";
+  console.log(`[Firebase ${origin}] Not initialized: Missing configuration.`);
 }
 
 export const analytics: Analytics | null =
   typeof window !== "undefined" && app ? getAnalytics(app) : null;
 
+// Named exports (keeping for compatibility)
 export { auth, db, storage };
 export default app;
 
+/**
+ * Public state check for components
+ */
 export function isFirebaseConfigured(): boolean {
   return app !== null && db !== null;
 }
